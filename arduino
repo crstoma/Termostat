@@ -1,0 +1,63 @@
+#include <SPI.h>
+#include <Ethernet.h>
+#include <EthernetClient.h>
+
+const int releu1 = 2;
+const int releu2 = 3;
+const int releu3 = 4;
+const int releu4 = 5;
+
+EthernetServer server(80);
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(releu1, OUTPUT);
+  pinMode(releu2, OUTPUT);
+  pinMode(releu3, OUTPUT);
+  pinMode(releu4, OUTPUT);
+  digitalWrite(releu1, HIGH);
+  digitalWrite(releu2, HIGH);
+  digitalWrite(releu3, HIGH);
+  digitalWrite(releu4, HIGH);
+
+  byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    while (true);
+  }
+  server.begin();
+  Serial.print("Server is at ");
+  Serial.println(Ethernet.localIP());
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    String currentLine = "";
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        if (c == '\n') {
+          if (currentLine.length() == 0) {
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-Type: application/json");
+            client.println("Connection: close");
+            client.println();
+            break;
+          } else {
+            currentLine = "";
+          }
+        } else if (c != '\r') {
+          currentLine += c;
+        }
+        if (currentLine.endsWith("GET /releu")) {
+          // Aici gestionezi comanda primită de la ESP32 și controlezi releele
+          // Exemplu:
+          digitalWrite(releu1, LOW);  // Activează releul 1
+        }
+      }
+    }
+    delay(1);
+    client.stop();
+  }
+}
