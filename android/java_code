@@ -1,0 +1,90 @@
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
+import androidx.appcompat.app.AppCompatActivity;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public class MainActivity extends AppCompatActivity {
+
+    private TextView textViewTemp, textViewHum;
+    private Button buttonSend;
+
+    private final String SERVER_URL = "http://numele_domeniului_tau/getdata";
+    private final String COMMAND_URL = "http://numele_domeniului_tau/command";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        textViewTemp = findViewById(R.id.textViewTemp);
+        textViewHum = findViewById(R.id.textViewHum);
+        buttonSend = findViewById(R.id.buttonSend);
+
+        buttonSend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendCommand("ON");
+            }
+        });
+
+        // Obține datele de la ESP32
+        new GetDataTask().execute(SERVER_URL);
+    }
+
+    private class GetDataTask extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... urls) {
+            StringBuilder result = new StringBuilder();
+            try {
+                URL url = new URL(urls[0]);
+                HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+                reader.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return result.toString();
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            // Afișează rezultatul în TextView-uri
+            String[] data = result.split(",");
+            textViewTemp.setText(data[0]);
+            textViewHum.setText(data[1]);
+        }
+    }
+
+    private void sendCommand(String command) {
+        new AsyncTask<String, Void, Void>() {
+            @Override
+            protected Void doInBackground(String... params) {
+                try {
+                    URL url = new URL(COMMAND_URL);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setDoOutput(true);
+                    OutputStream os = conn.getOutputStream();
+                    os.write(("command=" + command).getBytes());
+                    os.flush();
+                    os.close();
+                    conn.getResponseCode(); // Pentru a iniția conexiunea
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+        }.execute(command);
+    }
+}
