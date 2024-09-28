@@ -21,7 +21,7 @@ DHT dht(DHTPIN, DHTTYPE);
 
 // Configurare rețea
 const char* ssid = "Wifi";
-const char* password = "Password";
+const char* password = "password";
 const char* serverIP = "192.168.0.150"; // IP-ul Arduino-ului
 
 WiFiClient client;
@@ -49,18 +49,31 @@ void setup() {
 }
 
 void loop() {
+   // Citește temperatura și umiditatea
+  float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
+
 
   // Afișare pe OLED
   display.clearDisplay();
+  
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print("Temp: ");
+  display.setCursor(40,0);
+  display.println(F("Welcome"));
+  
+  display.setTextSize(2);
+  display.setCursor(0, 16);
+  display.print(F("T:"));
   display.print(temperature);
+  display.print(F(" C"));
+  
+  display.setCursor(0, 40);
+  display.print(F("H:"));
+  display.print(humidity);
+  display.print(F(" %"));
+  
   display.display();
-  Serial.println(temperature);
-
 
   // Trimitere temperatură către Arduino prin rețea
   if (client.connect(serverIP, 81)) {
