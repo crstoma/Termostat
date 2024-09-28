@@ -54,6 +54,10 @@ void setup() {
   }
   display.clearDisplay();
 
+ // Setează contrastul (luminozitatea) OLED-ului
+  display.ssd1306_command(SSD1306_SETCONTRAST);
+  display.ssd1306_command(50);  // Setează o valoare de contrast mai mică (exemplu: 50)
+
   //Button
   pinMode(BUTTON_PIN, INPUT_PULLUP);  // Setează pinul butonului cu rezistență pull-up internă
 

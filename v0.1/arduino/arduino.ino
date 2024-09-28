@@ -9,7 +9,7 @@ EthernetServer server(81);
 
 // Pinul pentru controlul releului
 const int relayPin = 7;
-float temperatureThreshold = 27.0; // Pragul de temperatură pentru activarea releului
+float temperatureThreshold = 22.0; // Pragul de temperatură pentru activarea releului
 
 void setup() {
   Serial.begin(9600);
