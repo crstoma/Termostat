@@ -16,10 +16,6 @@ DHT dht(DHTPIN, DHTTYPE);
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-//Citire Baterie
-#define BATT_LEVEL A0
-const float BATT_LEVEL_LOW = 3.5;
-
 //Butoane setare temp
 #define BUTTON_UP 0 //D3
 #define BUTTON_DOWN 5 //D1
@@ -86,8 +82,7 @@ void loop() {
     }
   }
   
-    //delay(5000); // Așteaptă 10 secunde înainte de a citi din nou
-    //ESP.deepSleep(60e6);
+  delay(5000); // Așteaptă 10 secunde înainte de a citi din nou
 
 }
 
@@ -96,9 +91,6 @@ void DisplayDataRead(){
 // Citește temperatura și umiditatea
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
-  float battLevelNow = analogRead(BATT_LEVEL) / 209.66; // assumes external 180K resistor
-  Serial.print("batt=");
-  Serial.println(battLevelNow);
 
 // Afișare pe OLED
   display.clearDisplay();
@@ -120,19 +112,9 @@ void DisplayDataRead(){
 
   display.setCursor(0, 56);
   display.setTextSize(1);
-  display.print(F("Battery: "));
-  display.print(battLevelNow, 2);
-  display.print(F(" V"));
+  display.print("Bucatarie");
 
   display.display();
-
-}
-
-void BatteryMonitor(){
-
-  float battLevelNow = analogRead(BATT_LEVEL) / 209.66; // assumes external 180K resistor
-  Serial.print("batt=");
-  Serial.println(battLevelNow);
 
 }
 
