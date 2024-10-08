@@ -28,11 +28,17 @@ int selectedMenu = 0; // 0 = meniul pentru temperatură, 1 = meniul pentru ceas
 
 // Variabile pentru temperatura setată
 float setTemperature = 21.0;
-float minTemp = 17.0;
+float minTemp = 19.0;
 bool inSetTempMode = false;  // Modul de setare a temperaturii
+float morningTemp = 21.0;
+float afternoonTemp = 23.0;
+float eveningTemp = 19.0;
+
+float* currentTempSetting = nullptr;
+
 
 // Configurare Wi-Fi
-const char* ssid = "Wifi"; // SSID-ul rețelei Wi-Fi
+const char* ssid = "wireless"; // SSID-ul rețelei Wi-Fi
 const char* password = "password"; // Parola rețelei Wi-Fi
 const char* serverIP = "192.168.0.150"; // IP-ul Arduino-ului
 
@@ -201,44 +207,56 @@ void displayMainMenu() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("Main Menu:");
 
-  // Indicator pentru meniu selectat
-  display.setCursor(0, 16);
+  display.setCursor(0, 0);
   if (selectedMenu == 0) display.print(" > ");
-  display.println("Set Temp");
+  display.println("Set Morning Temp");
+
+  display.setCursor(0, 16);
+  if (selectedMenu == 1) display.print(" > ");
+  display.println("Set Afternoon Temp");
 
   display.setCursor(0, 32);
-  if (selectedMenu == 1) display.print(" > ");
+  if (selectedMenu == 2) display.print(" > ");
+  display.println("Set Evening Temp");
+
+  display.setCursor(0, 48);
+  if (selectedMenu == 3) display.print(" > ");
   display.println("Set Clock");
 
   display.display();
 }
 
+
 // Gestionarea meniului principal
 void handleMainMenu() {
   unsigned long currentMillis = millis();
 
-  // Buton UP pentru schimbare selecție meniu
   if (digitalRead(BUTTON_UP) == LOW && currentMillis - lastPressTimeUp > debounceDelay) {
     lastPressTimeUp = currentMillis;
-    selectedMenu = (selectedMenu + 1) % 2; // Comutăm între 0 și 1
+    selectedMenu = (selectedMenu + 1) % 4; // Acum avem 4 opțiuni
     displayMainMenu();
   }
 
-  // Buton SELECT pentru a intra în meniul selectat
   if (digitalRead(BUTTON_SELECT) == LOW && currentMillis - lastDebounceTime > debounceDelay) {
     lastDebounceTime = currentMillis;
     inMenu = false; // Ieșim din meniul principal
 
     if (selectedMenu == 0) {
-      inSetTempMode = true; // Intrăm în modul de setare a temperaturii
+      inSetTempMode = true; // Modul de setare pentru dimineață
+      currentTempSetting = &morningTemp;
     } else if (selectedMenu == 1) {
-      inSetTimeMode = true; // Intrăm în modul de setare a orei
+      inSetTempMode = true; // Modul de setare pentru după-amiază
+      currentTempSetting = &afternoonTemp;
+    } else if (selectedMenu == 2) {
+      inSetTempMode = true; // Modul de setare pentru seară
+      currentTempSetting = &eveningTemp;
+    } else if (selectedMenu == 3) {
+      inSetTimeMode = true; // Setarea orei
     }
   }
 }
+
 
 // Funcție pentru setarea temperaturii cu butoanele UP și DOWN
 void SetareTemp() {
@@ -249,31 +267,30 @@ void SetareTemp() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.print("Set Temp:");
+
   display.setCursor(0, 40);
-  display.print(setTemperature);
+  display.print(*currentTempSetting);
   display.print(" *C");
   display.display();
 
-  // Apăsare lungă pe butonul UP (crește temperatura)
   if (digitalRead(BUTTON_UP) == LOW && currentMillis - lastPressTimeUp > pressInterval) {
     lastPressTimeUp = currentMillis;
-    setTemperature += 0.5;
+    *currentTempSetting += 0.5;
   }
 
-  // Apăsare lungă pe butonul DOWN (scade temperatura)
   if (digitalRead(BUTTON_DOWN) == LOW && currentMillis - lastPressTimeDown > pressInterval) {
     lastPressTimeDown = currentMillis;
-    if (setTemperature > minTemp) {
-      setTemperature -= 0.5;
+    if (*currentTempSetting > minTemp) {
+      *currentTempSetting -= 0.5;
     }
   }
 
-  // Buton SELECT pentru a salva temperatura și a ieși din modul de setare
   if (digitalRead(BUTTON_SELECT) == LOW && currentMillis - lastDebounceTime > debounceDelay) {
     lastDebounceTime = currentMillis;
     inSetTempMode = false; // Ieșim din modul de setare a temperaturii
   }
 }
+
 
 // Funcție pentru setarea orei
 void setTime() {
@@ -331,25 +348,30 @@ void setTime() {
 
 // Funcție care trimite comanda către releu pe baza temperaturii citite
 void RelaySend() {
-  unsigned long currentMillis = millis();
-  
-  if (currentMillis - previousDHTMillis >= dhtInterval) {
-    previousDHTMillis = currentMillis;
+  float temperature = dht.readTemperature();
+  float targetTemperature;
 
-    float temperature = dht.readTemperature();
+  // Verificăm ora curentă pentru a alege temperatura potrivită
+  if (currentHour >= 6 && currentHour < 12) {
+    targetTemperature = morningTemp;
+  } else if (currentHour >= 12 && currentHour < 18) {
+    targetTemperature = afternoonTemp;
+  } else {
+    targetTemperature = eveningTemp;
+  }
 
-    if (isnan(temperature)) {
-      Serial.println("Eroare citire DHT");
-      return;
-    }
+  if (isnan(temperature)) {
+    Serial.println("Eroare citire DHT");
+    return;
+  }
 
-    if (temperature < setTemperature) {
-      sendRelayCommand(1);
-    } else {
-      sendRelayCommand(0);
-    }
+  if (temperature < targetTemperature) {
+    sendRelayCommand(1); // Releu ON
+  } else {
+    sendRelayCommand(0); // Releu OFF
   }
 }
+
 
 
 void sendRelayCommand(int state) {
