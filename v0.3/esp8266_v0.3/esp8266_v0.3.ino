@@ -31,6 +31,11 @@ float setTemperature = 21.0;
 float minTemp = 17.0;
 bool inSetTempMode = false;  // Modul de setare a temperaturii
 
+// Configurare Wi-Fi
+const char* ssid = "Wifi"; // SSID-ul rețelei Wi-Fi
+const char* password = "password"; // Parola rețelei Wi-Fi
+const char* serverIP = "192.168.0.150"; // IP-ul Arduino-ului
+
 // Variabile pentru ora curentă
 int currentHour = 0;
 int currentMinute = 0;
@@ -41,6 +46,12 @@ bool settingHours = true; // Inițial setăm orele
 // Interval de actualizare
 unsigned long previousMillis = 0;
 const long interval = 1000; // 1 secundă
+
+unsigned long previousDHTMillis = 0;
+const long dhtInterval = 2000; // 2 secunde
+
+unsigned long previousRelayMillis = 0;
+const long relayInterval = 5000; // 5 secunde
 
 // Variabile pentru gestionarea butoanelor cu millis()
 unsigned long lastDebounceTime = 0;
@@ -64,11 +75,26 @@ void setup() {
     for (;;);
   }
 
+  // Setează contrastul (luminozitatea) OLED-ului
+  //display.ssd1306_command(SSD1306_DISPLAYOFF);
+  //display.ssd1306_command(SSD1306_SETCONTRAST);
+  //display.ssd1306_command(5);  // Setează o valoare de contrast mai mică (exemplu: 50)
+  //display.clearDisplay();
+
+
   // Configurare pini butoane
   pinMode(BUTTON_UP, INPUT_PULLUP);
   pinMode(BUTTON_DOWN, INPUT_PULLUP);
   pinMode(BUTTON_SELECT, INPUT_PULLUP);
   pinMode(BUTTON_MENU, INPUT_PULLUP);
+
+  // Conectare la Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Conectat la rețea!");
 
   // Afișăm datele senzorului la început
   DisplayDataRead();
@@ -124,6 +150,11 @@ void loop() {
     SetareTemp();
   } else if (inSetTimeMode) {
     setTime();
+  }
+    // Apelăm RelaySend() doar la fiecare 5 secunde
+  if (currentMillis - previousRelayMillis >= relayInterval) {
+    previousRelayMillis = currentMillis;
+    RelaySend();
   }
 }
 
@@ -295,5 +326,47 @@ void setTime() {
   if (digitalRead(BUTTON_MENU) == LOW && currentMillis - lastDebounceTime > debounceDelay) {
     lastDebounceTime = currentMillis;
     inSetTimeMode = false; // Ieșim din modul de setare a timpului
+  }
+}
+
+// Funcție care trimite comanda către releu pe baza temperaturii citite
+void RelaySend() {
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previousDHTMillis >= dhtInterval) {
+    previousDHTMillis = currentMillis;
+
+    float temperature = dht.readTemperature();
+
+    if (isnan(temperature)) {
+      Serial.println("Eroare citire DHT");
+      return;
+    }
+
+    if (temperature < setTemperature) {
+      sendRelayCommand(1);
+    } else {
+      sendRelayCommand(0);
+    }
+  }
+}
+
+
+void sendRelayCommand(int state) {
+  WiFiClient client;
+  float temperature = dht.readTemperature();
+  
+  // Timeout pentru conexiune
+  unsigned long startAttemptTime = millis();
+
+  if (client.connect(serverIP, 81)) { // Conectare la server
+    String command = "releu=" + String(state); // Formează comanda releului
+    client.print(command); // Trimiterea comenzii
+    client.stop(); // Închide conexiunea
+    Serial.print("Comandă trimisă: ");
+    Serial.println(command);
+  } else if (millis() - startAttemptTime > 1000) {  // Timeout de 1 secundă
+    Serial.println("Conexiune eșuată la server.");
+    client.stop(); // Închide conexiunea dacă eșuează
   }
 }
