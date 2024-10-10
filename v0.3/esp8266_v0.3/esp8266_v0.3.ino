@@ -36,9 +36,12 @@ float eveningTemp = 19.0;
 
 float* currentTempSetting = nullptr;
 
+float hysteresis = 0.2;  // Histerezis ajustabil (între 0.1 și 0.5)
+bool relayState = false;  // Variabilă pentru starea curentă a releului
+
 
 // Configurare Wi-Fi
-const char* ssid = "wireless"; // SSID-ul rețelei Wi-Fi
+const char* ssid = "wifi"; // SSID-ul rețelei Wi-Fi
 const char* password = "password"; // Parola rețelei Wi-Fi
 const char* serverIP = "192.168.0.150"; // IP-ul Arduino-ului
 
@@ -346,30 +349,46 @@ void setTime() {
   }
 }
 
-// Funcție care trimite comanda către releu pe baza temperaturii citite
+// Funcție care trimite comanda către releu pe baza temperaturii citite și aplică histerezis
 void RelaySend() {
-  float temperature = dht.readTemperature();
-  float targetTemperature;
+    float temperature = dht.readTemperature();
+    float targetTemperature;
 
-  // Verificăm ora curentă pentru a alege temperatura potrivită
-  if (currentHour >= 6 && currentHour < 12) {
-    targetTemperature = morningTemp;
-  } else if (currentHour >= 12 && currentHour < 18) {
-    targetTemperature = afternoonTemp;
-  } else {
-    targetTemperature = eveningTemp;
-  }
+    // Selectăm temperatura țintă în funcție de ora curentă
+    if (currentHour >= 6 && currentHour < 12) {
+        targetTemperature = morningTemp;
+    } else if (currentHour >= 12 && currentHour < 18) {
+        targetTemperature = afternoonTemp;
+    } else {
+        targetTemperature = eveningTemp;
+    }
 
-  if (isnan(temperature)) {
-    Serial.println("Eroare citire DHT");
-    return;
-  }
+    // Verificăm dacă citirea temperaturii este validă
+    if (isnan(temperature)) {
+        Serial.println("Eroare citire DHT");
+        return;
+    }
 
-  if (temperature < targetTemperature) {
-    sendRelayCommand(1); // Releu ON
-  } else {
-    sendRelayCommand(0); // Releu OFF
-  }
+    // Aplicația histerezisului
+    if (temperature < (targetTemperature - hysteresis)) {
+        if (!relayState) {
+            sendRelayCommand(1); // Pornim releul dacă temperatura scade sub prag minus histerezis
+            relayState = true;
+            Serial.println("Releu ON");
+        }
+    } else if (temperature > (targetTemperature + hysteresis)) {
+        if (relayState) {
+            sendRelayCommand(0); // Oprim releul dacă temperatura depășește prag plus histerezis
+            relayState = false;
+            Serial.println("Releu OFF");
+        }
+    }
+
+    // Afișăm starea releului și temperatura curentă pentru debugging
+    Serial.print("Temperatura actuală: ");
+    Serial.println(temperature);
+    Serial.print("Releu stare: ");
+    Serial.println(relayState ? "ON" : "OFF");
 }
 
 
