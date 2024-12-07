@@ -2,8 +2,8 @@
 #include <ESP8266WebServer.h>
 
 // Configurare WiFi
-const char* ssid = "EpicMe";
-const char* password = "cristofer27";
+const char* ssid = "wifi";
+const char* password = "password";
 
 // Configurare pin releu
 #define RELAY_PIN D1

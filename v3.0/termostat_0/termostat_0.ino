@@ -7,8 +7,8 @@
 #include <Wire.h>
 
 // Configurare WiFi
-const char* ssid = "EpicMe";
-const char* password = "cristofer27";
+const char* ssid = "wifi";
+const char* password = "password";
 
 // Configurare DHT
 #define DHTPIN 4
