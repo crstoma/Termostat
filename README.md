@@ -12,5 +12,5 @@ Materiale necesare
 Fire de conexiune și breadboard (placă de test)
 Sursă de alimentare
 
-v1.0 - termostate si esp32 conectate la retea
-v2.0 - termostate si esp32 conectate intre ele folosind esp-now si interfata web pentru control
+
+- termostate, controller actuatoare si controller centrala
