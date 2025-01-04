@@ -5,8 +5,8 @@
 #include <LiquidCrystal_I2C.h>
 
 // Configurare WiFi
-const char* ssid = "WIFI_NAME";
-const char* password = "PASSWORD";
+const char* ssid = "WiFi";
+const char* password = "password";
 
 // Configurare IP static
 IPAddress staticIP(192, 168, 0, 100);
@@ -222,24 +222,28 @@ void updateLCD() {
             lcd.print(heatingRequest[i] ? "=ON " : "=OFF ");
         }
 
-        // Rând 3: Starea boilerului și numărul de termostate pierdute
+        // Rând 3: Starea boilerului (CT) și sincronizarea (CON)
         lcd.setCursor(0, 2);
         lcd.print("CT=");
         lcd.print(heatingRequest[0] ? "ON " : "OFF");
         lcd.setCursor(11, 2); // 4 spații între CT și CON
-        lcd.print("LOST=");
-        int disconnected = 0;
+        lcd.print("CON=");
+        
+        bool boilerSynced = true;
+        // Verifică dacă toate zonele care solicită încălzire sunt sincronizate cu boilerul
         for (int i = 0; i < 6; i++) {
-            if (millis() - lastUpdate[i] > timeout) {
-                disconnected++;
+            if (heatingRequest[i] && (millis() - lastUpdate[i] > timeout)) {
+                boilerSynced = false;
+                break;
             }
         }
-        lcd.print(disconnected);
+
+        lcd.print(boilerSynced ? "ON " : "OFF");
 
         // Rând 4: Temperatura DHT
         lcd.setCursor(0, 3);
         lcd.print("DHT=");
-        lcd.print(dhtTemp, 1);
+        lcd.print(dhtTemp, 1); // Afișează temperatura DHT
         lcd.print("C   "); // Adaugă spații pentru a acoperi caractere vechi
     }
 }
