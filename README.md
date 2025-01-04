@@ -11,6 +11,6 @@ Materiale necesare
 
 Fire de conexiune și breadboard (placă de test)
 Sursă de alimentare
-
+Adaugat display 2004 cu I2C si senzor DHT la centrala principala(backup in caz ca pica vreun termostat)
 
 - termostate, controller actuatoare si controller centrala

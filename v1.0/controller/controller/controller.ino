@@ -1,9 +1,11 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
+#include <DHT.h>
+#include <LiquidCrystal_I2C.h>
 
 // Configurare WiFi
-const char* ssid = "WIRELESS";
+const char* ssid = "WIFI_NAME";
 const char* password = "PASSWORD";
 
 // Configurare IP static
@@ -26,6 +28,15 @@ float setTemps[6] = {20, 20, 20, 20, 20, 20};
 unsigned long lastUpdate[6] = {0};
 unsigned long timeout = 30000; // Timeout pentru actualizări
 
+// Configurare DHT
+#define DHTPIN 19
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+float dhtTemp = 0.0;
+
+// Configurare LCD
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
 void setup() {
     Serial.begin(115200);
 
@@ -47,36 +58,53 @@ void setup() {
         digitalWrite(actuators[i], HIGH);
     }
 
-    // Configurare server
+    // Inițializare server
     server.on("/update", handleUpdate);
     server.begin();
     Serial.println("Server HTTP pornit!");
+
+    // Inițializare DHT
+    dht.begin();
+
+    // Inițializare LCD
+    lcd.init();
+    lcd.backlight();
+    lcd.clear();
+    lcd.print("Initializare...");
+    delay(2000);
 }
 
 void loop() {
     server.handleClient();
 
+    // Actualizare temperatură DHT
+    dhtTemp = dht.readTemperature();
+
     // Verificare zone cu date expirate
     for (int i = 0; i < 6; i++) {
-        if (millis() - lastUpdate[i] > timeout) {
-            Serial.printf("Zona %d: Date expirate. Resetare la 20°C\n", i + 1);
-            temps[i] = 20.0;
-        }
+    if (millis() - lastUpdate[i] > timeout) {
+        Serial.printf("Zona %d: Pierdere conexiune. Folosim temperatura DHT\n", i + 1);
+        temps[i] = dhtTemp;
+        heatingRequest[i] = false; // Asigură-te că actuatorul este oprit
     }
+}
 
     // Gestionare încălzire
     static unsigned long lastManageTime = 0;
-    if (millis() - lastManageTime > 5000) {
+    if (millis() - lastManageTime > 3000) {
         manageHeating();
         lastManageTime = millis();
     }
 
     // Sincronizare boiler
     static unsigned long lastSyncTime = 0;
-    if (millis() - lastSyncTime > 5000) {
+    if (millis() - lastSyncTime > 3000) {
         checkBoilerState();
         lastSyncTime = millis();
     }
+
+    // Actualizare afișaj
+    updateLCD();
 }
 
 void handleUpdate() {
@@ -121,30 +149,22 @@ void sendBoilerCommand(bool turnOn) {
         WiFiClient client;
         HTTPClient http;
         String url = "http://" + String(gasBoilerIP) + ":" + String(gasBoilerPort) + "/boiler?state=" + (turnOn ? "on" : "off");
-        
-        bool confirmed = false;
-        int retryCount = 0;
 
-        while (!confirmed && retryCount < 5) {
-            if (http.begin(client, url)) {
-                int httpResponseCode = http.GET();
-                if (httpResponseCode == 200) {
-                    String response = http.getString();
-                    if ((turnOn && response == "Boiler ON") || (!turnOn && response == "Boiler OFF")) {
-                        confirmed = true;
-                    }
-                }
-                http.end();
+        Serial.printf("Trimitere comandă boiler: %s\n", turnOn ? "ON" : "OFF");
+
+        if (http.begin(client, url)) {
+            int httpResponseCode = http.GET();
+            if (httpResponseCode == 200) {
+                String response = http.getString();
+                Serial.println("Răspuns boiler: " + response);
+            } else {
+                Serial.printf("Eroare la trimiterea comenzii către boiler. Cod HTTP: %d\n", httpResponseCode);
             }
-            retryCount++;
-            delay(1000);
-        }
-
-        if (!confirmed) {
-            Serial.println("Boilerul nu a confirmat starea. Retrimite comanda!");
+            http.end();
         }
     }
 }
+
 
 void checkBoilerState() {
     if (WiFi.status() == WL_CONNECTED) {
@@ -156,12 +176,70 @@ void checkBoilerState() {
             int httpResponseCode = http.GET();
             if (httpResponseCode == 200) {
                 String response = http.getString();
-                bool expectedState = heatingRequest[0];
-                if ((response == "Boiler ON" && !expectedState) || (response == "Boiler OFF" && expectedState)) {
+                bool boilerState = (response == "Boiler ON");
+                bool expectedState = false;
+                for (int i = 0; i < 6; i++) {
+                    if (heatingRequest[i]) {
+                        expectedState = true;
+                        break;
+                    }
+                }
+
+                if (boilerState != expectedState) {
+                    Serial.println("Starea boilerului nu corespunde. Reaplicare comandă...");
                     sendBoilerCommand(expectedState);
                 }
+            } else {
+                Serial.printf("Eroare la obținerea stării boilerului. Cod HTTP: %d\n", httpResponseCode);
             }
             http.end();
         }
+    }
+}
+
+
+void updateLCD() {
+    static unsigned long lastLCDUpdate = 0; // Nume diferit pentru claritate
+    unsigned long currentMillis = millis();
+
+    // Actualizare la fiecare 1000 ms
+    if (currentMillis - lastLCDUpdate >= 1000) {
+        lastLCDUpdate = currentMillis;
+
+        // Rând 1: Starea releelor 1-3
+        lcd.setCursor(0, 0);
+        for (int i = 0; i < 3; i++) {
+            lcd.print("Z");
+            lcd.print(i + 1);
+            lcd.print(heatingRequest[i] ? "=ON " : "=OFF ");
+        }
+
+        // Rând 2: Starea releelor 4-6
+        lcd.setCursor(0, 1);
+        for (int i = 3; i < 6; i++) {
+            lcd.print("Z");
+            lcd.print(i + 1);
+            lcd.print(heatingRequest[i] ? "=ON " : "=OFF ");
+        }
+
+        // Rând 3: Starea boilerului și numărul de termostate pierdute
+        lcd.setCursor(0, 2);
+        lcd.print("CT=");
+        lcd.print(heatingRequest[0] ? "ON " : "OFF");
+        lcd.setCursor(11, 2); // 4 spații între CT și CON
+        lcd.print("LOST=");
+        int disconnected = 0;
+        for (int i = 0; i < 6; i++) {
+            if (millis() - lastUpdate[i] > timeout) {
+                disconnected++;
+            }
+        }
+        lcd.print(disconnected);
+
+        // Rând 4: Temperatura DHT
+        lcd.setCursor(0, 3);
+        lcd.print("DHT=");
+        lcd.print(dhtTemp, 1);
+        lcd.print("C   "); // Adaugă spații pentru a acoperi caractere vechi
     }
 }

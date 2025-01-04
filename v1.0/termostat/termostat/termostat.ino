@@ -19,7 +19,7 @@ DHT dht(DHTPIN, DHTTYPE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Configurare WiFi
-const char* ssid = "WIRELESS";
+const char* ssid = "WIRELESS_NAME";
 const char* password = "PASSWORD";
 const char* serverIP = "192.168.0.100"; // IP-ul centralei
 const int serverPort = 8080;           // Portul centralei
@@ -34,7 +34,6 @@ IPAddress subnet(255, 255, 255, 0);    // Masca de rețea
 #define BTN_DEC 5  // Buton pentru scăderea temperaturii
 #define BTN_RESET 13 // Buton pentru resetarea temperaturii
 float tempSet = 20.0; // Temperatura setată
-String comStatus = "N/A"; // Status comunicare
 String zona = "Living";   // Zona curentă
 
 void setup() {
@@ -80,21 +79,20 @@ void loop() {
     Serial.println("Reîncercare conectare WiFi...");
     WiFi.reconnect();
     delay(5000);
-    comStatus = "Eroare WiFi";
     return;
   }
 
   // Gestionare butoane
   handleButtons();
 
-  // Citire temperatură
+  // Citire temperatură și umiditate
   float temp = dht.readTemperature();
   float hum = dht.readHumidity();
 
+  // Verificare dacă citirea este validă
   if (isnan(temp) || isnan(hum)) {
     Serial.println("Eroare la citirea senzorului DHT22!");
-    comStatus = "Eroare DHT";
-    return;
+    hum = 0;  // Dacă citirea a eșuat, afișăm 0 ca umiditate
   }
 
   // Trimitere date la server
@@ -106,18 +104,16 @@ void loop() {
     int responseCode = http.GET();
     if (responseCode > 0) {
       Serial.printf("Răspuns server: %d\n", responseCode);
-      comStatus = "OK";
     } else {
       Serial.printf("Eroare la trimiterea datelor: %s\n", http.errorToString(responseCode).c_str());
-      comStatus = "Eroare Server";
     }
     http.end();
   } else {
-    comStatus = "Eroare HTTP";
+    Serial.println("Eroare la inițializarea HTTP");
   }
 
   // Actualizare display
-  updateDisplay(temp);
+  updateDisplay(temp, hum);
 
   //delay(5000); // Interval actualizare
 }
@@ -143,7 +139,7 @@ void handleButtons() {
   }
 }
 
-void updateDisplay(float temp) {
+void updateDisplay(float temp, float hum) {
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
@@ -156,14 +152,15 @@ void updateDisplay(float temp) {
 
   // Afișează temperatura curentă
   display.setCursor(0, 16);
-  display.print("TEMP:");
+  display.print("TMP:");
   display.print(temp);
   display.println("C");
 
-  // Afișează statusul comunicării
+  // Afișează umiditatea curentă
   display.setCursor(0, 32);
-  display.print("Com: ");
-  display.print(comStatus);
+  display.print("TH:");
+  display.print(hum);
+  display.println("%");
 
   // Afișează zona
   display.setCursor(0, 48);
