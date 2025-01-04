@@ -5,8 +5,8 @@
 #include <LiquidCrystal_I2C.h>
 
 // Configurare WiFi
-const char* ssid = "WiFi";
-const char* password = "password";
+const char* ssid = "WIFI";
+const char* password = "PASSWD";
 
 // Configurare IP static
 IPAddress staticIP(192, 168, 0, 100);
@@ -26,7 +26,7 @@ bool heatingRequest[6] = {false};
 float temps[6] = {0};
 float setTemps[6] = {20, 20, 20, 20, 20, 20};
 unsigned long lastUpdate[6] = {0};
-unsigned long timeout = 30000; // Timeout pentru actualizări
+unsigned long timeout = 10000; // Timeout pentru actualizări
 
 // Configurare DHT
 #define DHTPIN 19
@@ -222,28 +222,24 @@ void updateLCD() {
             lcd.print(heatingRequest[i] ? "=ON " : "=OFF ");
         }
 
-        // Rând 3: Starea boilerului (CT) și sincronizarea (CON)
+        // Rând 3: Starea boilerului și numărul de termostate pierdute
         lcd.setCursor(0, 2);
         lcd.print("CT=");
         lcd.print(heatingRequest[0] ? "ON " : "OFF");
         lcd.setCursor(11, 2); // 4 spații între CT și CON
-        lcd.print("CON=");
-        
-        bool boilerSynced = true;
-        // Verifică dacă toate zonele care solicită încălzire sunt sincronizate cu boilerul
+        lcd.print("LOST=");
+        int disconnected = 0;
         for (int i = 0; i < 6; i++) {
-            if (heatingRequest[i] && (millis() - lastUpdate[i] > timeout)) {
-                boilerSynced = false;
-                break;
+            if (millis() - lastUpdate[i] > timeout) {
+                disconnected++;
             }
         }
-
-        lcd.print(boilerSynced ? "ON " : "OFF");
+        lcd.print(disconnected);
 
         // Rând 4: Temperatura DHT
         lcd.setCursor(0, 3);
         lcd.print("DHT=");
-        lcd.print(dhtTemp, 1); // Afișează temperatura DHT
+        lcd.print(dhtTemp, 1);
         lcd.print("C   "); // Adaugă spații pentru a acoperi caractere vechi
     }
 }
