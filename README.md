@@ -1,16 +1,42 @@
 Materiale necesare
 
-1 x ESP8266 cu oled 0.96 inch
-1 x Senzor de temperatură și umiditate DHT22
-1 x Placă Arduino Uno
-1 x Modul Ethernet Shield W5100
-1 x Esp32 WROOM ca receptor inlocuind Arduino
-1 x Releu
-1 x Baterie 18650
-1 x Button
+Termostat
 
-Fire de conexiune și breadboard (placă de test)
-Sursă de alimentare
-Adaugat display 2004 cu I2C si senzor DHT la centrala principala(backup in caz ca pica vreun termostat)
+ESP8266 0.96" OLED MODULE V2.1.0
+D2 - DHT22 Sensor pin 4
+VCC - 3V
+GND
+D1 - Buton DOWN pin 5
+D3 - Buton UP pin 0
+D4 - Mod pin 2
+D7 - Reset Temp pin 13 -- nu este necesar
 
-- termostate, controller actuatoare si controller centrala
+Centrala/Boiler
+
+ESP8266 0.96" OLED MODULE V2.1.0 / NodeMCU ESP8266
+
+Modul 2 Relee
+VCC 5V
+GND
+D1 - Releu1
+D2 - ReleuSecundar
+
+Centrala Comanda
+
+ESPDUINO-32 HW-707 / ESP32
+
+DHT22 Sensor pin 19
+VCC 3V3 / 5V
+GND
+Tastatura arduino adkeyboard pin 36
+VCC 3V3
+GND
+Display 20x4 I2C
+SDA
+SCL
+VCC 5V
+GND
+RELEE Module X6 pini
+16, 17, 25, 26, 14, 27
+5 VCC
+GND
